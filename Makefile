@@ -1,36 +1,39 @@
-# Compiler
+# Target microcontroller
+MCU = avr128db28
+
+# Compiler and flags
 CC = avr-gcc
-OBJCOPY = avr-objcopy
+CFLAGS = -mmcu=$(MCU) -Os -Wall -Iinclude
 
-# Microcontroller settings
-MCU = atmega328p  # Change if using a different AVR
-F_CPU = 16000000UL  # Adjust to match your clock speed
-CFLAGS = -mmcu=$(MCU) -DF_CPU=$(F_CPU) -Os -Wall -Wextra
+# AVRDUDE settings for flashing
+AVRDUDE = avrdude
+AVRDUDE_PROGRAMMER = jtag2updi   # Change if using a different programmer
+AVRDUDE_PORT = /dev/ttyUSB0      # Change if using a different serial port
 
-# Files
-SRC = src/main.c src/motor_control.c src/distance_sensor.c src/metal_detector.c src/remotecontroller.c src/wireless_remote.c
-OBJ = $(SRC:.c=.o)
-TARGET = enel300
+# Source files
+SRCS = src/main.c src/motor_control.c src/distance_sensor.c src/metal_detector.c src/remotecontroller.c src/wireless_remote.c
+OBJS = $(SRCS:.c=.o)
 
-# Default target
+# Output files
+TARGET = build/firmware
+
+# Compilation rule
 all: $(TARGET).hex
 
-# Compile
+$(TARGET).elf: $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
 %.o: %.c
-	$(CC) $(CFLAGS) -Iinclude -c $< -o $@
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Link
-$(TARGET).elf: $(OBJ)
-	$(CC) $(CFLAGS) $^ -o $@
-
-# Convert to HEX
 $(TARGET).hex: $(TARGET).elf
-	$(OBJCOPY) -O ihex $< $@
+	avr-objcopy -O ihex $< $@
 
-# Flash to AVR (adjust port and programmer as needed)
+# Upload to AVR
 flash: $(TARGET).hex
-	avrdude -c arduino -p $(MCU) -P /dev/ttyUSB0 -b 115200 -U flash:w:$(TARGET).hex:i
+	$(AVRDUDE) -c $(AVRDUDE_PROGRAMMER) -p $(MCU) -P $(AVRDUDE_PORT) -U flash:w:$(TARGET).hex:i
 
 # Clean build files
 clean:
-	rm -f src/*.o $(TARGET).elf $(TARGET).hex
+	rm -f src/*.o build/*
+
